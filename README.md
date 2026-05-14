@@ -3,7 +3,7 @@
 Quiz interactivo en dos fases para grabar en vivo en el canal de YouTube de Ariana (10 años).
 
 - **Fase 1 (privada):** Ariana responde 12 preguntas en su tablet → se guardan en Supabase.
-- **Fase 2 (en vivo):** Papá y Mamá responden las mismas 12 preguntas en sus celulares, con 4 opciones (1 correcta + 3 falsas generadas por Claude). Ariana ve el marcador en tiempo real en su tablet.
+- **Fase 2 (en vivo):** Papá y Mamá responden las mismas 12 preguntas en sus celulares, con 4 opciones (1 correcta + 3 falsas generadas por OpenAI gpt-4o-mini). Ariana ve el marcador en tiempo real en su tablet.
 
 ---
 
@@ -16,7 +16,7 @@ quiz-ariana/
 ├── quiz.html              → Papá / Mamá: 4 opciones por pregunta
 ├── scoreboard.html        → Tablet de Ariana: marcador en vivo
 ├── netlify/functions/
-│   └── generate-quiz.js   → Proxy de Anthropic API (CORS + protege la key)
+│   └── generate-quiz.js   → Proxy de OpenAI API (CORS + protege la key)
 ├── netlify.toml
 ├── migration.sql          → SQL para crear las 4 tablas
 └── README.md              ← este archivo
@@ -69,7 +69,7 @@ Site → **Site configuration** → **Environment variables** → Add a variable
 
 | Key                          | Value                                        |
 |------------------------------|----------------------------------------------|
-| `ANTHROPIC_API_KEY`          | tu API key de Anthropic (sk-ant-...)         |
+| `OPENAI_API_KEY`             | tu API key de OpenAI (sk-...)                |
 | `SUPABASE_SERVICE_ROLE_KEY`  | service role key del paso 3                  |
 | `SUPABASE_URL`               | `https://jrhmykilnqndvgnsmueo.supabase.co`   |
 
@@ -147,7 +147,7 @@ python3 -m http.server 8000
   alter publication supabase_realtime add table player_answers;
   alter publication supabase_realtime add table quiz_sessions;
   ```
-- **Claude devuelve JSON con texto extra** → La función ya extrae el primer bloque `{...}`; si aun así falla, revisa el log de la función para ver el prompt/respuesta exacta.
+- **OpenAI devuelve JSON con texto extra** → La función ya extrae el primer bloque `{...}`; si aun así falla, revisa el log de la función para ver el prompt/respuesta exacta.
 
 ---
 
