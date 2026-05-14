@@ -1,20 +1,20 @@
 // =============================================================
 // generate-quiz.js
-// Netlify Function — proxy de Anthropic API
+// Netlify Function — proxy de OpenAI API
 // - Recibe las 12 respuestas sinceras de Ariana
-// - Para cada pregunta pide a Claude 3 alternativas falsas plausibles
+// - Para cada pregunta pide a gpt-4o-mini 3 alternativas falsas plausibles
 // - Randomiza qué letra (a/b/c/d) es la correcta
 // - Inserta cada quiz_question en Supabase (service role key)
 // - Marca la sesión como 'ready' al terminar
 // =============================================================
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_MODEL = "gpt-4o-mini";
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || "https://jrhmykilnqndvgnsmueo.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 function corsHeaders() {
   return {
@@ -34,33 +34,32 @@ function shuffle(arr) {
   return copy;
 }
 
-async function askClaude(question, answer) {
+async function askAI(question, answer) {
   const prompt = `Estás generando un quiz divertido sobre Ariana, niña peruana de 10 años, para YouTube.
 Pregunta: ${question}
 Respuesta correcta de Ariana: ${answer}
 Genera 3 respuestas incorrectas pero plausibles y divertidas para niños peruanos.
 Responde SOLO JSON puro: {"wrong1":"...","wrong2":"...","wrong3":"..."}`;
 
-  const res = await fetch(ANTHROPIC_URL, {
+  const res = await fetch(OPENAI_URL, {
     method: "POST",
     headers: {
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 400,
+      model: OPENAI_MODEL,
+      max_tokens: 300,
       messages: [{ role: "user", content: prompt }],
     }),
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Anthropic ${res.status}: ${text}`);
+    throw new Error(`OpenAI ${res.status}: ${text}`);
   }
   const data = await res.json();
-  const raw = data?.content?.[0]?.text || "";
+  const raw = data?.choices?.[0]?.message?.content || "";
 
   // Robustez: extraer el primer bloque JSON aunque venga con texto extra
   const match = raw.match(/\{[\s\S]*\}/);
@@ -107,13 +106,13 @@ exports.handler = async (event) => {
     };
   }
 
-  if (!ANTHROPIC_API_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+  if (!OPENAI_API_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
     return {
       statusCode: 500,
       headers: corsHeaders(),
       body: JSON.stringify({
         error:
-          "Faltan variables de entorno: ANTHROPIC_API_KEY y/o SUPABASE_SERVICE_ROLE_KEY",
+          "Faltan variables de entorno: OPENAI_API_KEY y/o SUPABASE_SERVICE_ROLE_KEY",
       }),
     };
   }
@@ -149,7 +148,7 @@ exports.handler = async (event) => {
         );
       }
 
-      const wrongs = await askClaude(question_text, answer);
+      const wrongs = await askAI(question_text, answer);
 
       // Mezclar las 4 opciones y recordar la letra correcta
       const all = shuffle([
