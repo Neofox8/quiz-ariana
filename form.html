@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>¿Cuánto me conocen? — Para Ariana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --blue:#00B4D8; --blue-dark:#0077B6; --navy:#03045E;
+      --purple:#7B2FBE; --pink:#FF6B9D; --yellow:#FFD166;
+      --light-blue:#90E0EF; --bg-dark:#020B2D; --text:#CAF0F8;
+      --correct:#06D6A0; --wrong:#EF476F;
+    }
+    html,body{ background:var(--bg-dark); color:var(--text); }
+    body{ font-family:'Nunito',system-ui,sans-serif; }
+    h1,h2,h3,.fredoka{ font-family:'Fredoka',system-ui,sans-serif; letter-spacing:.2px;}
+    /* fondo estrellado */
+    .stars,.stars2,.stars3{
+      position:fixed; inset:0; pointer-events:none; z-index:0;
+      background-repeat:repeat;
+    }
+    .stars{
+      background-image:
+        radial-gradient(2px 2px at 20% 30%, #fff 40%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 70% 80%, #fff 40%, transparent 100%),
+        radial-gradient(1px 1px at 40% 60%, #fff 40%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 90% 20%, #fff 40%, transparent 100%),
+        radial-gradient(1px 1px at 60% 10%, #fff 40%, transparent 100%);
+      background-size: 600px 600px;
+      animation: drift 90s linear infinite;
+      opacity:.7;
+    }
+    .stars2{
+      background-image:
+        radial-gradient(1px 1px at 15% 50%, var(--light-blue) 40%, transparent 100%),
+        radial-gradient(1px 1px at 80% 70%, var(--pink) 40%, transparent 100%),
+        radial-gradient(1px 1px at 50% 40%, var(--yellow) 40%, transparent 100%),
+        radial-gradient(1px 1px at 30% 85%, var(--light-blue) 40%, transparent 100%);
+      background-size: 800px 800px;
+      animation: drift 140s linear infinite reverse;
+      opacity:.55;
+    }
+    .stars3{
+      background-image: radial-gradient(circle at 50% 50%, rgba(123,47,190,.18) 0, transparent 60%);
+      background-size:100% 100%;
+    }
+    @keyframes drift { from{background-position:0 0;} to{background-position:600px 600px;} }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      border:1px solid rgba(202,240,248,.15);
+      border-radius:28px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+      backdrop-filter: blur(6px);
+    }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
+      padding: 1rem 1.6rem; border-radius:20px;
+      font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.15rem;
+      transition: transform .15s ease, box-shadow .15s ease, opacity .15s;
+      box-shadow: 0 10px 24px rgba(0,180,216,.35), inset 0 1px 0 rgba(255,255,255,.25);
+      color:white;
+    }
+    .btn:active{ transform:translateY(2px); }
+    .btn-blue   { background:linear-gradient(180deg,var(--blue),var(--blue-dark)); }
+    .btn-pink   { background:linear-gradient(180deg,#ff8fb3,var(--pink)); }
+    .btn-yellow { background:linear-gradient(180deg,#ffe08a,var(--yellow)); color:#3a2a00; }
+    .btn-purple { background:linear-gradient(180deg,#a560d6,var(--purple)); }
+    .btn:disabled{ opacity:.45; cursor:not-allowed; box-shadow:none; }
+
+    .input{
+      width:100%; padding:1.1rem 1.2rem; font-size:1.15rem;
+      color:var(--text); background:rgba(2,11,45,.65);
+      border:2px solid rgba(144,224,239,.35); border-radius:18px;
+      outline:none; transition:border-color .2s, box-shadow .2s;
+      font-family:'Nunito',sans-serif;
+    }
+    .input:focus{ border-color:var(--pink); box-shadow:0 0 0 4px rgba(255,107,157,.18); }
+
+    /* slide animations */
+    .slide-enter{ animation: slideIn .35s ease both; }
+    .slide-leave{ animation: slideOut .25s ease both; }
+    @keyframes slideIn  { from{ opacity:0; transform: translateX(40px);} to{opacity:1; transform: translateX(0);} }
+    @keyframes slideOut { from{ opacity:1; transform: translateX(0);}    to{opacity:0; transform: translateX(-40px);} }
+
+    .progress-track{
+      height:14px; background:rgba(144,224,239,.15);
+      border-radius:999px; overflow:hidden;
+      border:1px solid rgba(144,224,239,.2);
+    }
+    .progress-bar{
+      height:100%;
+      background:linear-gradient(90deg,var(--pink),var(--yellow),var(--blue));
+      background-size:200% 100%;
+      transition: width .4s ease;
+      animation: shimmer 4s linear infinite;
+    }
+    @keyframes shimmer { from{background-position:0 0;} to{background-position:200% 0;} }
+
+    .emoji-bounce{ display:inline-block; animation: bounce 1.8s ease-in-out infinite; }
+    @keyframes bounce { 0%,100%{ transform:translateY(0);} 50%{transform:translateY(-8px);} }
+
+    .session-pill{
+      font-family:'Nunito',monospace; font-size:.95rem;
+      background:rgba(144,224,239,.12); border:1px dashed rgba(144,224,239,.4);
+      padding:.5rem .8rem; border-radius:12px; color:var(--light-blue);
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden">
+  <div class="stars3"></div>
+  <div class="stars"></div>
+  <div class="stars2"></div>
+
+  <main class="relative z-10 max-w-2xl mx-auto px-5 py-8 sm:py-12">
+
+    <!-- 1) Bienvenida -->
+    <section id="screen-welcome" class="card p-7 sm:p-10 text-center">
+      <div class="text-6xl emoji-bounce mb-3">🌟</div>
+      <h1 class="text-3xl sm:text-4xl font-bold mb-3" style="color:var(--yellow)">
+        ¡Hola, Ariana!
+      </h1>
+      <p class="text-lg sm:text-xl mb-2">
+        Vamos a hacer 12 preguntas sobre ti.
+      </p>
+      <p class="text-base sm:text-lg mb-6" style="color:var(--light-blue)">
+        Responde con sinceridad 💖<br/>
+        Nadie va a ver esto hasta el video.
+      </p>
+      <button id="btn-start" class="btn btn-pink w-full sm:w-auto">
+        ¡Empezar! ✨
+      </button>
+    </section>
+
+    <!-- 2) Preguntas -->
+    <section id="screen-quiz" class="hidden">
+      <div class="mb-4">
+        <div class="flex justify-between items-center mb-2">
+          <span class="fredoka text-sm sm:text-base" style="color:var(--light-blue)">
+            Pregunta <span id="q-current">1</span> de 12
+          </span>
+          <span class="fredoka text-sm sm:text-base" style="color:var(--pink)">
+            <span id="q-percent">8</span>%
+          </span>
+        </div>
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-bar" style="width:8%"></div>
+        </div>
+      </div>
+
+      <div id="question-card" class="card p-6 sm:p-8 slide-enter">
+        <div class="text-4xl mb-3" id="q-emoji">🤔</div>
+        <h2 id="q-text" class="text-2xl sm:text-3xl font-semibold mb-5"
+            style="color:var(--yellow); line-height:1.25;">
+          ...
+        </h2>
+        <textarea id="q-input" class="input" rows="3"
+                  placeholder="Escribe tu respuesta..."></textarea>
+
+        <div class="flex justify-between gap-3 mt-6">
+          <button id="btn-prev" class="btn btn-purple" style="opacity:.85">
+            ← Atrás
+          </button>
+          <button id="btn-next" class="btn btn-blue">
+            Siguiente →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3) Final -->
+    <section id="screen-done" class="hidden card p-8 text-center">
+      <div class="text-7xl mb-3 emoji-bounce">🎉</div>
+      <h2 class="text-3xl font-bold mb-3" style="color:var(--correct)">
+        ¡Listo, Ariana!
+      </h2>
+      <p class="text-lg mb-5">
+        Tus 12 respuestas están guardadas con súper seguridad. 🔒
+      </p>
+      <p class="text-sm mb-2" style="color:var(--light-blue)">
+        Pásale este código a papá:
+      </p>
+      <div id="session-id" class="session-pill mb-6">—</div>
+      <p class="text-sm" style="color:var(--light-blue)">
+        Ahora avisa que ya pueden seguir con el quiz 🎬
+      </p>
+    </section>
+
+    <!-- 4) Error -->
+    <section id="screen-error" class="hidden card p-8 text-center">
+      <div class="text-5xl mb-3">😢</div>
+      <h2 class="text-2xl font-bold mb-3" style="color:var(--wrong)">Algo se rompió</h2>
+      <p id="error-msg" class="text-base mb-5"></p>
+      <button onclick="location.reload()" class="btn btn-blue">Intentar de nuevo 🔄</button>
+    </section>
+
+  </main>
+
+  <script>
+    // ====== CONFIG SUPABASE ======
+    const SUPABASE_URL = "https://jrhmykilnqndvgnsmueo.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyaG15a2lsbnFuZHZnbnNtdWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTE0MjgsImV4cCI6MjA5MjYyNzQyOH0.TgtzyFyZ5xKBGNeNVy_Gdwh3yapszS5yTBl69NZp-48";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const QUESTIONS = [
+      { n:1,  emoji:"🍕", text:"¿Cuál es mi comida favorita?" },
+      { n:2,  emoji:"📅", text:"¿Cuál es mi plan perfecto para un sábado aburrido?" },
+      { n:3,  emoji:"😤", text:"¿Qué pequeña cosa me pone de mal humor rapidísimo?" },
+      { n:4,  emoji:"🏃", text:"¿Qué deporte o actividad nunca me gustó hacer?" },
+      { n:5,  emoji:"🐶", text:"¿Qué mascota me gustaría tener (o tengo)?" },
+      { n:6,  emoji:"🥤", text:"¿Cuál es mi bebida favorita?" },
+      { n:7,  emoji:"📺", text:"¿Qué canal de YouTube veo para relajarme?" },
+      { n:8,  emoji:"🤪", text:"¿Cuál es mi costumbre más rara?" },
+      { n:9,  emoji:"💡", text:"¿Cuál es mi tema favorito para aprender o hablar?" },
+      { n:10, emoji:"🤫", text:"¿Qué hago cuando estoy solo/a y nadie me ve?" },
+      { n:11, emoji:"🎵", text:"¿Cuál es mi canción favorita?" },
+      { n:12, emoji:"🏠", text:"¿Cuál es mi rincón favorito de la casa?" },
+    ];
+
+    const state = {
+      idx: 0,
+      answers: new Array(QUESTIONS.length).fill(""),
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const screens = {
+      welcome: $("screen-welcome"),
+      quiz:    $("screen-quiz"),
+      done:    $("screen-done"),
+      error:   $("screen-error"),
+    };
+
+    function show(name){
+      Object.values(screens).forEach(s => s.classList.add("hidden"));
+      screens[name].classList.remove("hidden");
+    }
+
+    function render(){
+      const q = QUESTIONS[state.idx];
+      $("q-emoji").textContent = q.emoji;
+      $("q-text").textContent  = q.text;
+      $("q-input").value = state.answers[state.idx] || "";
+      $("q-current").textContent = String(state.idx + 1);
+      const pct = Math.round(((state.idx) / QUESTIONS.length) * 100);
+      $("q-percent").textContent = String(pct);
+      $("progress-bar").style.width = pct + "%";
+
+      $("btn-prev").disabled = state.idx === 0;
+      $("btn-next").textContent = state.idx === QUESTIONS.length - 1 ? "Enviar ✓" : "Siguiente →";
+
+      const card = $("question-card");
+      card.classList.remove("slide-enter");
+      void card.offsetWidth;
+      card.classList.add("slide-enter");
+
+      setTimeout(() => $("q-input").focus(), 200);
+    }
+
+    function next(){
+      const val = $("q-input").value.trim();
+      if(!val){
+        $("q-input").focus();
+        $("q-input").style.borderColor = "var(--wrong)";
+        setTimeout(() => $("q-input").style.borderColor = "", 1200);
+        return;
+      }
+      state.answers[state.idx] = val;
+      if(state.idx < QUESTIONS.length - 1){
+        state.idx++;
+        render();
+      } else {
+        submit();
+      }
+    }
+
+    function prev(){
+      $("q-input").value && (state.answers[state.idx] = $("q-input").value.trim());
+      if(state.idx > 0){ state.idx--; render(); }
+    }
+
+    async function submit(){
+      $("btn-next").disabled = true;
+      $("btn-next").textContent = "Guardando...";
+
+      try {
+        const { data: session, error: e1 } = await sb
+          .from("quiz_sessions")
+          .insert({ status: "collecting" })
+          .select()
+          .single();
+        if(e1) throw e1;
+
+        const rows = QUESTIONS.map((q, i) => ({
+          session_id: session.id,
+          question_number: q.n,
+          question_text: q.text,
+          answer: state.answers[i],
+        }));
+
+        const { error: e2 } = await sb.from("ariana_answers").insert(rows);
+        if(e2) throw e2;
+
+        $("session-id").textContent = session.id;
+        $("progress-bar").style.width = "100%";
+        $("q-percent").textContent = "100";
+        show("done");
+      } catch (err) {
+        console.error(err);
+        $("error-msg").textContent = err.message || String(err);
+        show("error");
+      }
+    }
+
+    $("btn-start").addEventListener("click", () => {
+      show("quiz");
+      render();
+    });
+    $("btn-next").addEventListener("click", next);
+    $("btn-prev").addEventListener("click", prev);
+    $("q-input").addEventListener("keydown", (e) => {
+      if(e.key === "Enter" && e.ctrlKey) next();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Quiz · ¿Cuánto conoces a Ariana?</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --blue:#00B4D8; --blue-dark:#0077B6; --navy:#03045E;
+      --purple:#7B2FBE; --pink:#FF6B9D; --yellow:#FFD166;
+      --light-blue:#90E0EF; --bg-dark:#020B2D; --text:#CAF0F8;
+      --correct:#06D6A0; --wrong:#EF476F;
+    }
+    html,body{ background:var(--bg-dark); color:var(--text); }
+    body{ font-family:'Nunito',system-ui,sans-serif; }
+    h1,h2,h3,.fredoka{ font-family:'Fredoka',system-ui,sans-serif;}
+    .stars,.stars2,.stars3{ position:fixed; inset:0; pointer-events:none; z-index:0; background-repeat:repeat;}
+    .stars{
+      background-image:
+        radial-gradient(2px 2px at 20% 30%, #fff 40%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 70% 80%, #fff 40%, transparent 100%),
+        radial-gradient(1px 1px at 40% 60%, #fff 40%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 90% 20%, #fff 40%, transparent 100%);
+      background-size: 600px 600px;
+      animation: drift 90s linear infinite; opacity:.7;
+    }
+    .stars2{
+      background-image:
+        radial-gradient(1px 1px at 15% 50%, var(--light-blue) 40%, transparent 100%),
+        radial-gradient(1px 1px at 80% 70%, var(--pink) 40%, transparent 100%),
+        radial-gradient(1px 1px at 50% 40%, var(--yellow) 40%, transparent 100%);
+      background-size: 800px 800px;
+      animation: drift 140s linear infinite reverse; opacity:.55;
+    }
+    .stars3{ background:radial-gradient(circle at 50% 50%, rgba(255,107,157,.18) 0, transparent 60%);}
+    @keyframes drift { from{background-position:0 0;} to{background-position:600px 600px;} }
+
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      border:1px solid rgba(202,240,248,.15);
+      border-radius:26px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+
+    .input{
+      width:100%; padding:1.1rem 1.2rem; font-size:1.2rem;
+      color:var(--text); background:rgba(2,11,45,.65);
+      border:2px solid rgba(144,224,239,.35); border-radius:18px; outline:none;
+      font-family:'Nunito',sans-serif;
+    }
+    .input:focus{ border-color:var(--pink); box-shadow:0 0 0 4px rgba(255,107,157,.18); }
+
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
+      padding: 1rem 1.4rem; border-radius:18px;
+      font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.1rem; color:#fff;
+      box-shadow: 0 8px 22px rgba(0,180,216,.32), inset 0 1px 0 rgba(255,255,255,.2);
+      transition: transform .12s ease, opacity .15s, filter .15s;
+    }
+    .btn:active{ transform: translateY(2px); }
+    .btn:disabled{ opacity:.5; cursor:not-allowed; }
+    .btn-blue   { background:linear-gradient(180deg,var(--blue),var(--blue-dark)); }
+    .btn-pink   { background:linear-gradient(180deg,#ff8fb3,var(--pink)); }
+    .btn-yellow { background:linear-gradient(180deg,#ffe08a,var(--yellow)); color:#3a2a00; }
+    .btn-purple { background:linear-gradient(180deg,#a560d6,var(--purple)); }
+
+    .option-btn{
+      display:flex; align-items:center; gap:.9rem; width:100%; text-align:left;
+      padding:1.1rem 1.2rem; border-radius:20px; cursor:pointer;
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      border:2px solid rgba(144,224,239,.25);
+      font-family:'Fredoka',sans-serif; font-weight:500; font-size:1.1rem;
+      color:var(--text); transition: transform .12s ease, border-color .15s, background .15s;
+    }
+    .option-btn:hover:not(:disabled){ border-color:var(--pink); transform:translateY(-2px); }
+    .option-btn:active{ transform: translateY(2px); }
+    .option-btn .letter{
+      flex:0 0 auto;
+      width:2.2rem; height:2.2rem; border-radius:12px;
+      display:flex; align-items:center; justify-content:center;
+      background:rgba(255,107,157,.2); color:var(--pink);
+      font-weight:700; font-size:1.1rem;
+    }
+    .option-btn.correct{ background:rgba(6,214,160,.22); border-color:var(--correct); color:#d9fff1; }
+    .option-btn.correct .letter{ background:var(--correct); color:#053b2a; }
+    .option-btn.wrong{ background:rgba(239,71,105,.22); border-color:var(--wrong); color:#ffd9e1; }
+    .option-btn.wrong .letter{ background:var(--wrong); color:#3a0010; }
+    .option-btn:disabled{ cursor:default; }
+
+    .progress-track{ height:12px; background:rgba(144,224,239,.15); border-radius:999px; overflow:hidden; }
+    .progress-bar{ height:100%; background:linear-gradient(90deg,var(--pink),var(--yellow),var(--blue)); transition:width .4s ease; }
+
+    .emoji-bounce{ display:inline-block; animation: bounce 1.8s ease-in-out infinite; }
+    @keyframes bounce { 0%,100%{ transform:translateY(0);} 50%{transform:translateY(-8px);} }
+
+    .pulse{ animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{ opacity:1;} 50%{opacity:.5;} }
+
+    .role-btn{
+      padding:1.2rem .8rem; border-radius:18px; font-family:'Fredoka',sans-serif;
+      font-weight:600; font-size:1.05rem; color:#fff; cursor:pointer;
+      transition:transform .12s ease;
+      box-shadow:0 10px 24px rgba(0,0,0,.35);
+    }
+    .role-btn:active{ transform:translateY(2px); }
+  </style>
+</head>
+<body class="min-h-screen relative">
+  <div class="stars3"></div>
+  <div class="stars"></div>
+  <div class="stars2"></div>
+
+  <main class="relative z-10 max-w-xl mx-auto px-4 py-8 sm:py-12">
+
+    <!-- Sin sesión -->
+    <section id="screen-nosession" class="hidden card p-7 text-center">
+      <div class="text-6xl mb-2">🤷</div>
+      <h2 class="text-2xl font-bold mb-3" style="color:var(--yellow)">Falta el enlace correcto</h2>
+      <p>Pídele a Christian la URL que termina en <code>?session=...</code></p>
+    </section>
+
+    <!-- Nombre -->
+    <section id="screen-name" class="hidden card p-6 sm:p-8">
+      <div class="text-center mb-5">
+        <div class="text-5xl emoji-bounce mb-2">🎮</div>
+        <h1 class="text-2xl sm:text-3xl font-bold" style="color:var(--yellow)">
+          ¿Cuánto conoces a Ariana?
+        </h1>
+        <p class="text-sm mt-1" style="color:var(--light-blue)">12 preguntas. 4 opciones. ¡Suerte!</p>
+      </div>
+
+      <label class="block mb-3 fredoka text-base" style="color:var(--light-blue)">
+        ¿Cómo te llamas?
+      </label>
+      <input id="name-input" class="input mb-3" placeholder="Tu nombre..." />
+
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <button class="role-btn" style="background:linear-gradient(180deg,#5fa8ff,var(--blue-dark))" data-name="Papá">Papá 👨</button>
+        <button class="role-btn" style="background:linear-gradient(180deg,#ff8fb3,var(--pink))"   data-name="Mamá">Mamá 👩</button>
+        <button class="role-btn" style="background:linear-gradient(180deg,#a560d6,var(--purple))" data-name="Otro">Otro 🙂</button>
+      </div>
+
+      <button id="btn-join" class="btn btn-blue w-full">¡Entrar al juego! →</button>
+      <p id="name-error" class="text-center text-sm mt-3" style="color:var(--wrong); display:none;"></p>
+    </section>
+
+    <!-- Espera -->
+    <section id="screen-wait" class="hidden card p-7 text-center">
+      <div class="text-6xl emoji-bounce mb-3">🎬</div>
+      <h2 class="text-2xl font-bold mb-2" style="color:var(--yellow)">¡Espera un segundito!</h2>
+      <p class="text-lg mb-1">Esperando que Ariana arranque el juego...</p>
+      <p class="text-sm pulse" style="color:var(--light-blue)">Listo en cualquier momento ✨</p>
+      <p class="text-xs mt-5 opacity-70">Jugando como: <strong id="wait-name">—</strong></p>
+    </section>
+
+    <!-- Pregunta -->
+    <section id="screen-quiz" class="hidden">
+      <div class="flex justify-between items-center mb-2">
+        <span class="fredoka text-sm" style="color:var(--light-blue)">
+          Pregunta <span id="q-current">1</span> de 12
+        </span>
+        <span class="fredoka text-sm" style="color:var(--pink)">
+          <span id="player-name">—</span>
+        </span>
+      </div>
+      <div class="progress-track mb-5"><div id="progress-bar" class="progress-bar" style="width:8%"></div></div>
+
+      <div class="card p-5 sm:p-7">
+        <div class="text-3xl mb-3" id="q-emoji">🤔</div>
+        <h2 id="q-text" class="text-xl sm:text-2xl font-semibold mb-5"
+            style="color:var(--yellow); line-height:1.3;">...</h2>
+
+        <div id="options" class="space-y-3"></div>
+
+        <div id="feedback" class="hidden text-center mt-5 fredoka text-xl"></div>
+      </div>
+    </section>
+
+    <!-- Final -->
+    <section id="screen-final" class="hidden card p-8 text-center">
+      <div class="text-7xl mb-3 emoji-bounce">🏆</div>
+      <h2 class="text-3xl font-bold mb-3" style="color:var(--correct)">¡Terminaste!</h2>
+      <p class="text-lg mb-1">Tu puntaje:</p>
+      <div class="fredoka text-5xl mb-3" style="color:var(--yellow)">
+        <span id="final-score">0</span>/12
+      </div>
+      <p id="final-msg" class="text-base mb-4">—</p>
+      <p class="text-sm" style="color:var(--light-blue)">
+        ¡Mira la tablet de Ariana para ver el ranking en vivo! 📺
+      </p>
+    </section>
+
+    <!-- Error -->
+    <section id="screen-error" class="hidden card p-7 text-center">
+      <div class="text-5xl mb-3">😢</div>
+      <h2 class="text-2xl font-bold mb-3" style="color:var(--wrong)">Algo se rompió</h2>
+      <p id="error-msg" class="text-base mb-5"></p>
+      <button onclick="location.reload()" class="btn btn-blue">Intentar de nuevo 🔄</button>
+    </section>
+
+  </main>
+
+  <script>
+    // ====== CONFIG ======
+    const SUPABASE_URL = "https://jrhmykilnqndvgnsmueo.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyaG15a2lsbnFuZHZnbnNtdWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTE0MjgsImV4cCI6MjA5MjYyNzQyOH0.TgtzyFyZ5xKBGNeNVy_Gdwh3yapszS5yTBl69NZp-48";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = (id) => document.getElementById(id);
+    const screens = {
+      nosession: $("screen-nosession"),
+      name:      $("screen-name"),
+      wait:      $("screen-wait"),
+      quiz:      $("screen-quiz"),
+      final:     $("screen-final"),
+      error:     $("screen-error"),
+    };
+    function show(name){
+      Object.values(screens).forEach(s => s.classList.add("hidden"));
+      screens[name].classList.remove("hidden");
+    }
+
+    const EMOJIS = ["🍕","📅","😤","🏃","🐶","🥤","📺","🤪","💡","🤫","🎵","🏠"];
+
+    // ====== STATE ======
+    const params = new URLSearchParams(location.search);
+    const sessionId = params.get("session");
+    const state = {
+      session: null,
+      questions: [],
+      idx: 0,
+      score: 0,
+      playerName: localStorage.getItem("quiz_player_name") || "",
+      statusChannel: null,
+    };
+
+    if(!sessionId){ show("nosession"); }
+    else { bootName(); }
+
+    function bootName(){
+      if(state.playerName) $("name-input").value = state.playerName;
+      show("name");
+      $("name-input").focus();
+    }
+
+    // Botones de rol → rellenan el input
+    document.querySelectorAll("[data-name]").forEach(b => {
+      b.addEventListener("click", () => {
+        $("name-input").value = b.dataset.name;
+        $("name-input").focus();
+      });
+    });
+
+    $("btn-join").addEventListener("click", join);
+    $("name-input").addEventListener("keydown", e => { if(e.key === "Enter") join(); });
+
+    async function join(){
+      const name = $("name-input").value.trim();
+      if(name.length < 2){
+        $("name-error").textContent = "Pon al menos 2 letras 🙂";
+        $("name-error").style.display = "block";
+        return;
+      }
+      $("name-error").style.display = "none";
+      state.playerName = name;
+      localStorage.setItem("quiz_player_name", name);
+      $("wait-name").textContent = name;
+      $("player-name").textContent = name;
+
+      try {
+        const { data: session, error } = await sb
+          .from("quiz_sessions").select("*").eq("id", sessionId).maybeSingle();
+        if(error) throw error;
+        if(!session){ throw new Error("Esa sesión no existe."); }
+
+        const { data: qs, error: e2 } = await sb
+          .from("quiz_questions").select("*").eq("session_id", sessionId).order("question_number");
+        if(e2) throw e2;
+        state.questions = qs || [];
+        state.session = session;
+
+        // Cargar respuestas previas de este jugador (idempotencia / refresh)
+        const { data: prev } = await sb
+          .from("player_answers")
+          .select("question_number,is_correct")
+          .eq("session_id", sessionId).eq("player_name", name);
+        const answered = new Set((prev||[]).map(r => r.question_number));
+        state.score = (prev||[]).filter(r => r.is_correct).length;
+        state.idx = 0;
+        while(state.idx < state.questions.length &&
+              answered.has(state.questions[state.idx].question_number)){
+          state.idx++;
+        }
+
+        afterStatus(session.status);
+        listenStatus();
+      } catch (err) {
+        $("error-msg").textContent = err.message;
+        show("error");
+      }
+    }
+
+    function listenStatus(){
+      if(state.statusChannel) sb.removeChannel(state.statusChannel);
+      state.statusChannel = sb.channel("session-" + sessionId)
+        .on("postgres_changes",
+          { event:"UPDATE", schema:"public", table:"quiz_sessions", filter:`id=eq.${sessionId}` },
+          (payload) => {
+            const newStatus = payload.new?.status;
+            if(!newStatus) return;
+            state.session.status = newStatus;
+            afterStatus(newStatus);
+          }
+        ).subscribe();
+    }
+
+    function afterStatus(status){
+      if(status === "playing"){
+        if(state.idx >= state.questions.length) finish();
+        else renderQuestion();
+      } else if(status === "finished"){
+        finish();
+      } else {
+        // collecting o ready → esperar
+        show("wait");
+      }
+    }
+
+    // ====== QUIZ ======
+    function renderQuestion(){
+      show("quiz");
+      const q = state.questions[state.idx];
+      if(!q){ finish(); return; }
+
+      $("q-current").textContent = String(state.idx + 1);
+      $("q-emoji").textContent = EMOJIS[q.question_number - 1] || "🤔";
+      $("q-text").textContent = q.question_text;
+      const pct = Math.round((state.idx / state.questions.length) * 100);
+      $("progress-bar").style.width = (pct < 8 ? 8 : pct) + "%";
+
+      const opts = [
+        ["a", q.option_a], ["b", q.option_b],
+        ["c", q.option_c], ["d", q.option_d],
+      ];
+      $("options").innerHTML = opts.map(([letter,text]) => `
+        <button class="option-btn" data-letter="${letter}">
+          <span class="letter">${letter.toUpperCase()}</span>
+          <span>${escapeHtml(text)}</span>
+        </button>
+      `).join("");
+      $("feedback").classList.add("hidden");
+
+      $("options").querySelectorAll(".option-btn").forEach(b => {
+        b.addEventListener("click", () => choose(b.dataset.letter, q));
+      });
+    }
+
+    async function choose(letter, q){
+      const buttons = $("options").querySelectorAll(".option-btn");
+      buttons.forEach(b => b.disabled = true);
+
+      const isCorrect = letter === q.correct_option;
+      if(isCorrect) state.score++;
+
+      buttons.forEach(b => {
+        if(b.dataset.letter === q.correct_option) b.classList.add("correct");
+        else if(b.dataset.letter === letter)      b.classList.add("wrong");
+      });
+
+      const fb = $("feedback");
+      fb.classList.remove("hidden");
+      fb.style.color = isCorrect ? "var(--correct)" : "var(--wrong)";
+      fb.textContent = isCorrect ? "¡Correcto! ✅" : "¡Ay, no! ❌";
+
+      // Guardar en Supabase (no bloqueante visualmente; pero esperamos antes de avanzar)
+      try {
+        await sb.from("player_answers").upsert({
+          session_id: sessionId,
+          player_name: state.playerName,
+          question_number: q.question_number,
+          selected_option: letter,
+          is_correct: isCorrect,
+        }, { onConflict: "session_id,player_name,question_number" });
+      } catch (err) {
+        console.error("upsert error", err);
+      }
+
+      setTimeout(() => {
+        state.idx++;
+        if(state.idx >= state.questions.length) finish();
+        else renderQuestion();
+      }, 1500);
+    }
+
+    function finish(){
+      show("final");
+      $("final-score").textContent = String(state.score);
+      $("progress-bar").style.width = "100%";
+      const pct = state.score / 12;
+      let msg = "¡Cada pregunta cuenta! 💖";
+      if(pct >= 0.83) msg = "¡Conoces a Ariana en serio en serio! 🥇";
+      else if(pct >= 0.66) msg = "¡Muy bien! La conoces bastante 🌟";
+      else if(pct >= 0.4)  msg = "¡Vas por buen camino! Pregúntale más cositas 😊";
+      else if(pct >= 0.2)  msg = "Toca conocerla un poquito más 😅";
+      $("final-msg").textContent = msg;
+    }
+
+    function escapeHtml(s){
+      return String(s ?? "")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+    }
+  </script>
+</body>
+</html>

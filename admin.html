@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Admin · Quiz Ariana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --blue:#00B4D8; --blue-dark:#0077B6; --navy:#03045E;
+      --purple:#7B2FBE; --pink:#FF6B9D; --yellow:#FFD166;
+      --light-blue:#90E0EF; --bg-dark:#020B2D; --text:#CAF0F8;
+      --correct:#06D6A0; --wrong:#EF476F;
+    }
+    html,body{ background:var(--bg-dark); color:var(--text); }
+    body{ font-family:'Nunito',system-ui,sans-serif; }
+    h1,h2,h3,.fredoka{ font-family:'Fredoka',system-ui,sans-serif;}
+    .stars,.stars2,.stars3{ position:fixed; inset:0; pointer-events:none; z-index:0; background-repeat:repeat;}
+    .stars{
+      background-image:
+        radial-gradient(2px 2px at 20% 30%, #fff 40%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 70% 80%, #fff 40%, transparent 100%),
+        radial-gradient(1px 1px at 40% 60%, #fff 40%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 90% 20%, #fff 40%, transparent 100%);
+      background-size: 600px 600px;
+      animation: drift 90s linear infinite; opacity:.7;
+    }
+    .stars2{
+      background-image:
+        radial-gradient(1px 1px at 15% 50%, var(--light-blue) 40%, transparent 100%),
+        radial-gradient(1px 1px at 80% 70%, var(--pink) 40%, transparent 100%),
+        radial-gradient(1px 1px at 50% 40%, var(--yellow) 40%, transparent 100%);
+      background-size: 800px 800px;
+      animation: drift 140s linear infinite reverse; opacity:.55;
+    }
+    .stars3{ background:radial-gradient(circle at 50% 50%, rgba(0,180,216,.15) 0, transparent 60%);}
+    @keyframes drift { from{background-position:0 0;} to{background-position:600px 600px;} }
+
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      border:1px solid rgba(202,240,248,.15);
+      border-radius:22px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .input{
+      width:100%; padding:.9rem 1rem; font-size:1.05rem;
+      color:var(--text); background:rgba(2,11,45,.65);
+      border:2px solid rgba(144,224,239,.35); border-radius:14px; outline:none;
+      font-family:'Nunito',sans-serif;
+    }
+    .input:focus{ border-color:var(--blue); box-shadow:0 0 0 4px rgba(0,180,216,.22); }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
+      padding:.85rem 1.3rem; border-radius:16px;
+      font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.05rem; color:#fff;
+      transition: transform .15s ease, opacity .15s; cursor:pointer;
+      box-shadow:0 8px 22px rgba(0,180,216,.28);
+    }
+    .btn:active{ transform:translateY(2px); }
+    .btn:disabled{ opacity:.45; cursor:not-allowed; }
+    .btn-blue   { background:linear-gradient(180deg,var(--blue),var(--blue-dark)); }
+    .btn-pink   { background:linear-gradient(180deg,#ff8fb3,var(--pink)); }
+    .btn-yellow { background:linear-gradient(180deg,#ffe08a,var(--yellow)); color:#3a2a00; }
+    .btn-green  { background:linear-gradient(180deg,#3be0b0,var(--correct)); color:#053b2a;}
+    .pill{
+      display:inline-block; padding:.18rem .65rem; border-radius:999px;
+      font-size:.75rem; font-family:'Nunito',sans-serif; font-weight:700;
+      letter-spacing:.4px; text-transform:uppercase;
+    }
+    .pill-collecting{ background:rgba(144,224,239,.18); color:var(--light-blue); }
+    .pill-ready    { background:rgba(255,209,102,.18); color:var(--yellow); }
+    .pill-playing  { background:rgba(6,214,160,.18); color:var(--correct); }
+    .pill-finished { background:rgba(123,47,190,.22); color:#d8b6ff; }
+
+    .copybox{
+      background:rgba(2,11,45,.7); border:1px dashed rgba(144,224,239,.35);
+      border-radius:12px; padding:.6rem .8rem; word-break:break-all; font-size:.9rem;
+    }
+    .option-row{
+      display:flex; align-items:center; gap:.6rem;
+      padding:.55rem .8rem; border-radius:12px;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06);
+    }
+    .option-row.correct{ background:rgba(6,214,160,.13); border-color:rgba(6,214,160,.45); }
+    .letter{
+      width:1.7rem; height:1.7rem; border-radius:8px;
+      display:inline-flex; align-items:center; justify-content:center;
+      background:rgba(144,224,239,.18); color:var(--light-blue);
+      font-family:'Fredoka',sans-serif; font-weight:700; font-size:.95rem;
+    }
+    .option-row.correct .letter{ background:var(--correct); color:#053b2a; }
+    .progress-track{ height:10px; background:rgba(144,224,239,.15); border-radius:999px; overflow:hidden; }
+    .progress-bar{ height:100%; background:linear-gradient(90deg,var(--pink),var(--yellow),var(--blue)); transition:width .3s ease; }
+  </style>
+</head>
+<body class="min-h-screen relative">
+  <div class="stars3"></div>
+  <div class="stars"></div>
+  <div class="stars2"></div>
+
+  <main class="relative z-10 max-w-4xl mx-auto px-4 py-6 sm:py-10">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-bold" style="color:var(--yellow)">🎛️ Panel del Quiz</h1>
+        <p class="text-sm" style="color:var(--light-blue)">¿Cuánto me conocen? · Ariana</p>
+      </div>
+      <button id="btn-logout" class="hidden text-xs underline opacity-70 hover:opacity-100">salir</button>
+    </header>
+
+    <!-- 1) PIN -->
+    <section id="screen-pin" class="card p-6 sm:p-8 max-w-md mx-auto">
+      <div class="text-5xl text-center mb-3">🔒</div>
+      <h2 class="text-xl font-bold text-center mb-4">Ingresa el PIN</h2>
+      <input id="pin-input" type="password" class="input mb-4" placeholder="••••••••" autocomplete="off" />
+      <button id="btn-pin" class="btn btn-blue w-full">Entrar →</button>
+      <p id="pin-error" class="text-center text-sm mt-3" style="color:var(--wrong); display:none;">PIN incorrecto</p>
+    </section>
+
+    <!-- 2) App -->
+    <section id="screen-app" class="hidden space-y-6">
+
+      <!-- Sesión actual -->
+      <div class="card p-5 sm:p-7">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <div>
+            <div class="text-sm" style="color:var(--light-blue)">Última sesión</div>
+            <div id="session-id-text" class="font-mono text-base">—</div>
+          </div>
+          <div class="text-right">
+            <span id="session-status" class="pill pill-collecting">—</span>
+            <div id="session-date" class="text-xs mt-1 opacity-70">—</div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 mt-2">
+          <button id="btn-refresh" class="btn btn-blue text-sm" style="padding:.55rem 1rem">🔄 Recargar</button>
+          <button id="btn-new" class="btn btn-pink text-sm" style="padding:.55rem 1rem">➕ Nueva sesión</button>
+        </div>
+      </div>
+
+      <!-- Respuestas de Ariana -->
+      <div class="card p-5 sm:p-7">
+        <h2 class="text-xl font-bold mb-3" style="color:var(--pink)">💭 Respuestas de Ariana</h2>
+        <div id="answers-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="opacity-60 text-sm">Cargando...</div>
+        </div>
+      </div>
+
+      <!-- Generar quiz -->
+      <div class="card p-5 sm:p-7">
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <h2 class="text-xl font-bold" style="color:var(--yellow)">✨ Generar Quiz con IA</h2>
+          <button id="btn-generate" class="btn btn-yellow">Generar 12 preguntas</button>
+        </div>
+        <div id="gen-status" class="hidden">
+          <div class="text-sm mb-2" style="color:var(--light-blue)">
+            <span id="gen-status-text">Generando...</span>
+          </div>
+          <div class="progress-track"><div id="gen-progress" class="progress-bar" style="width:0%"></div></div>
+        </div>
+        <p class="text-xs opacity-60 mt-3">
+          Esto llama a Claude (Anthropic) por cada pregunta. ~10–20 seg en total.
+        </p>
+      </div>
+
+      <!-- Preview del quiz -->
+      <div id="quiz-preview" class="card p-5 sm:p-7 hidden">
+        <h2 class="text-xl font-bold mb-3" style="color:var(--blue)">🎯 Preview del Quiz</h2>
+        <div id="questions-list" class="space-y-4"></div>
+
+        <div class="flex flex-wrap gap-3 mt-5">
+          <button id="btn-activate" class="btn btn-green">🚀 ¡Activar Quiz!</button>
+          <button id="btn-regen" class="btn btn-pink">🔁 Regenerar todo</button>
+        </div>
+      </div>
+
+      <!-- URLs -->
+      <div id="urls-box" class="card p-5 sm:p-7 hidden">
+        <h2 class="text-xl font-bold mb-3" style="color:var(--correct)">🔗 URLs para compartir</h2>
+        <div class="space-y-3">
+          <div>
+            <div class="text-sm mb-1" style="color:var(--light-blue)">📱 Papá y Mamá:</div>
+            <div id="url-quiz" class="copybox cursor-pointer" title="Click para copiar">—</div>
+          </div>
+          <div>
+            <div class="text-sm mb-1" style="color:var(--light-blue)">📺 Tablet de Ariana (scoreboard):</div>
+            <div id="url-scoreboard" class="copybox cursor-pointer" title="Click para copiar">—</div>
+          </div>
+        </div>
+        <button id="btn-play" class="btn btn-blue mt-5">▶️ Empezar el juego</button>
+        <p class="text-xs opacity-60 mt-2">
+          (Cambia el estado a "playing" para que los celulares de los papás muestren las preguntas.)
+        </p>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    // ====== CONFIG ======
+    const SUPABASE_URL = "https://jrhmykilnqndvgnsmueo.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyaG15a2lsbnFuZHZnbnNtdWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTE0MjgsImV4cCI6MjA5MjYyNzQyOH0.TgtzyFyZ5xKBGNeNVy_Gdwh3yapszS5yTBl69NZp-48eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyaG15a2lsbnFuZHZnbnNtdWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTE0MjgsImV4cCI6MjA5MjYyNzQyOH0.TgtzyFyZ5xKBGNeNVy_Gdwh3yapszS5yTBl69NZp-48";
+    const PIN = "ariana2026";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const $ = (id) => document.getElementById(id);
+
+    // ====== AUTH PIN (sessionStorage) ======
+    function isAuthed(){ return sessionStorage.getItem("quiz_admin_ok") === "1"; }
+    function authIn(){ sessionStorage.setItem("quiz_admin_ok","1"); }
+    function authOut(){ sessionStorage.removeItem("quiz_admin_ok"); }
+
+    function bootAuth(){
+      if(isAuthed()){
+        $("screen-pin").classList.add("hidden");
+        $("screen-app").classList.remove("hidden");
+        $("btn-logout").classList.remove("hidden");
+        loadLatest();
+      } else {
+        $("screen-pin").classList.remove("hidden");
+        $("screen-app").classList.add("hidden");
+        $("btn-logout").classList.add("hidden");
+        setTimeout(() => $("pin-input").focus(), 50);
+      }
+    }
+
+    $("btn-pin").addEventListener("click", () => {
+      if($("pin-input").value === PIN){
+        authIn(); bootAuth();
+      } else {
+        $("pin-error").style.display = "block";
+        $("pin-input").value = "";
+        $("pin-input").focus();
+      }
+    });
+    $("pin-input").addEventListener("keydown", e => { if(e.key === "Enter") $("btn-pin").click(); });
+    $("btn-logout").addEventListener("click", () => { authOut(); bootAuth(); });
+
+    // ====== STATE ======
+    const state = {
+      session: null,
+      answers: [],
+      questions: [],
+    };
+
+    // ====== LOAD ======
+    async function loadLatest(){
+      $("answers-list").innerHTML = `<div class="opacity-60 text-sm">Cargando...</div>`;
+      $("quiz-preview").classList.add("hidden");
+      $("urls-box").classList.add("hidden");
+
+      const { data: sessions, error } = await sb
+        .from("quiz_sessions")
+        .select("*")
+        .order("created_at", { ascending:false })
+        .limit(1);
+      if(error){ alert("Error: " + error.message); return; }
+
+      if(!sessions.length){
+        state.session = null;
+        $("session-id-text").textContent = "Sin sesiones todavía";
+        $("session-status").className = "pill pill-collecting";
+        $("session-status").textContent = "—";
+        $("session-date").textContent = "—";
+        $("answers-list").innerHTML = `<div class="opacity-60 text-sm">Ariana todavía no respondió. Pídele que abra <code>form.html</code>.</div>`;
+        return;
+      }
+
+      state.session = sessions[0];
+      $("session-id-text").textContent = state.session.id;
+      $("session-status").className = "pill pill-" + state.session.status;
+      $("session-status").textContent = state.session.status;
+      $("session-date").textContent = new Date(state.session.created_at).toLocaleString("es-PE");
+
+      const [{ data: ans }, { data: qs }] = await Promise.all([
+        sb.from("ariana_answers").select("*").eq("session_id", state.session.id).order("question_number"),
+        sb.from("quiz_questions").select("*").eq("session_id", state.session.id).order("question_number"),
+      ]);
+      state.answers = ans || [];
+      state.questions = qs || [];
+
+      renderAnswers();
+      if(state.questions.length){
+        renderQuestions();
+        $("quiz-preview").classList.remove("hidden");
+      }
+      if(["ready","playing","finished"].includes(state.session.status)){
+        renderUrls();
+        $("urls-box").classList.remove("hidden");
+      }
+    }
+
+    function renderAnswers(){
+      if(!state.answers.length){
+        $("answers-list").innerHTML = `<div class="opacity-60 text-sm">Esta sesión todavía no tiene respuestas.</div>`;
+        return;
+      }
+      $("answers-list").innerHTML = state.answers.map(a => `
+        <div class="card p-3" style="border-radius:14px">
+          <div class="text-xs opacity-70 mb-1">Pregunta ${a.question_number}</div>
+          <div class="fredoka text-sm mb-1" style="color:var(--yellow)">${escapeHtml(a.question_text)}</div>
+          <div class="text-sm">${escapeHtml(a.answer)}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderQuestions(){
+      $("questions-list").innerHTML = state.questions.map(q => {
+        const opts = [
+          ["a", q.option_a], ["b", q.option_b],
+          ["c", q.option_c], ["d", q.option_d],
+        ];
+        return `
+          <div class="card p-4" style="border-radius:14px">
+            <div class="flex items-baseline justify-between gap-3 mb-2">
+              <div class="fredoka text-base" style="color:var(--yellow)">
+                ${q.question_number}. ${escapeHtml(q.question_text)}
+              </div>
+              <div class="text-xs opacity-70">correcta: <strong style="color:var(--correct)">${q.correct_option.toUpperCase()}</strong></div>
+            </div>
+            <div class="space-y-1.5">
+              ${opts.map(([letter,text]) => `
+                <div class="option-row ${letter === q.correct_option ? "correct" : ""}">
+                  <span class="letter">${letter.toUpperCase()}</span>
+                  <span class="text-sm">${escapeHtml(text)}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderUrls(){
+      const base = location.origin + location.pathname.replace(/admin\.html$/, "");
+      const sid = state.session.id;
+      $("url-quiz").textContent = `${base}quiz.html?session=${sid}`;
+      $("url-scoreboard").textContent = `${base}scoreboard.html?session=${sid}`;
+    }
+
+    // ====== ACTIONS ======
+    $("btn-refresh").addEventListener("click", loadLatest);
+
+    $("btn-new").addEventListener("click", async () => {
+      if(!confirm("Esto crea una sesión vacía nueva. Solo úsalo si Ariana va a responder otra vez. ¿Seguir?")) return;
+      const { data, error } = await sb.from("quiz_sessions").insert({ status:"collecting" }).select().single();
+      if(error){ alert(error.message); return; }
+      alert("Nueva sesión creada: " + data.id);
+      loadLatest();
+    });
+
+    $("btn-generate").addEventListener("click", () => generate(false));
+    $("btn-regen").addEventListener("click", () => {
+      if(confirm("¿Regenerar TODO el quiz? (se sobrescriben las 12 preguntas)")) generate(true);
+    });
+
+    async function generate(regen){
+      if(!state.session){ alert("No hay sesión activa."); return; }
+      if(state.answers.length !== 12){
+        alert(`Necesitamos las 12 respuestas. Hay ${state.answers.length}.`);
+        return;
+      }
+
+      $("btn-generate").disabled = true;
+      $("btn-regen").disabled = true;
+      $("gen-status").classList.remove("hidden");
+      $("gen-status-text").textContent = "Enviando a Claude...";
+      $("gen-progress").style.width = "5%";
+
+      const payload = {
+        session_id: state.session.id,
+        questions: state.answers.map(a => ({
+          question_number: a.question_number,
+          question_text: a.question_text,
+          answer: a.answer,
+        })),
+      };
+
+      // Indicador "fake" de progreso mientras el endpoint trabaja (1 sola request)
+      let pct = 5;
+      const timer = setInterval(() => {
+        pct = Math.min(pct + Math.random() * 7, 92);
+        $("gen-progress").style.width = pct + "%";
+        $("gen-status-text").textContent =
+          "Generando preguntas con IA... (" + Math.round(pct) + "%)";
+      }, 700);
+
+      try {
+        const res = await fetch("/.netlify/functions/generate-quiz", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify(payload),
+        });
+        clearInterval(timer);
+        const json = await res.json().catch(() => ({}));
+        if(!res.ok){
+          throw new Error(json.error || `HTTP ${res.status}`);
+        }
+        $("gen-progress").style.width = "100%";
+        $("gen-status-text").textContent = `¡Listo! ${json.count} preguntas generadas.`;
+        await loadLatest();
+      } catch (err) {
+        clearInterval(timer);
+        $("gen-status-text").textContent = "Error: " + err.message;
+        $("gen-progress").style.background = "var(--wrong)";
+      } finally {
+        $("btn-generate").disabled = false;
+        $("btn-regen").disabled = false;
+      }
+    }
+
+    $("btn-activate").addEventListener("click", async () => {
+      if(!state.session) return;
+      const { error } = await sb.from("quiz_sessions").update({ status:"ready" }).eq("id", state.session.id);
+      if(error){ alert(error.message); return; }
+      await loadLatest();
+    });
+
+    $("btn-play").addEventListener("click", async () => {
+      if(!state.session) return;
+      if(!confirm("¿Empezar el juego ahora? Los celulares de los papás van a mostrar la primera pregunta.")) return;
+      const { error } = await sb.from("quiz_sessions").update({ status:"playing" }).eq("id", state.session.id);
+      if(error){ alert(error.message); return; }
+      await loadLatest();
+    });
+
+    // Click-to-copy
+    document.addEventListener("click", (e) => {
+      const el = e.target.closest(".copybox");
+      if(!el) return;
+      navigator.clipboard.writeText(el.textContent).then(() => {
+        const prev = el.style.borderColor;
+        el.style.borderColor = "var(--correct)";
+        setTimeout(() => el.style.borderColor = prev, 700);
+      });
+    });
+
+    function escapeHtml(s){
+      return String(s ?? "")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+    }
+
+    bootAuth();
+  </script>
+</body>
+</html>

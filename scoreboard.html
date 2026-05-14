@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Marcador · Quiz Ariana</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --blue:#00B4D8; --blue-dark:#0077B6; --navy:#03045E;
+      --purple:#7B2FBE; --pink:#FF6B9D; --yellow:#FFD166;
+      --light-blue:#90E0EF; --bg-dark:#020B2D; --text:#CAF0F8;
+      --correct:#06D6A0; --wrong:#EF476F;
+    }
+    html,body{ background:var(--bg-dark); color:var(--text); overflow-x:hidden;}
+    body{ font-family:'Nunito',system-ui,sans-serif; }
+    h1,h2,h3,.fredoka{ font-family:'Fredoka',system-ui,sans-serif;}
+    .stars,.stars2,.stars3{ position:fixed; inset:0; pointer-events:none; z-index:0; background-repeat:repeat;}
+    .stars{
+      background-image:
+        radial-gradient(2px 2px at 20% 30%, #fff 40%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 70% 80%, #fff 40%, transparent 100%),
+        radial-gradient(1px 1px at 40% 60%, #fff 40%, transparent 100%);
+      background-size: 600px 600px; animation: drift 90s linear infinite; opacity:.7;
+    }
+    .stars2{
+      background-image:
+        radial-gradient(1px 1px at 15% 50%, var(--light-blue) 40%, transparent 100%),
+        radial-gradient(1px 1px at 80% 70%, var(--pink) 40%, transparent 100%),
+        radial-gradient(1px 1px at 50% 40%, var(--yellow) 40%, transparent 100%);
+      background-size: 800px 800px; animation: drift 140s linear infinite reverse; opacity:.55;
+    }
+    .stars3{ background:radial-gradient(circle at 50% 50%, rgba(255,209,102,.12) 0, transparent 60%);}
+    @keyframes drift { from{background-position:0 0;} to{background-position:600px 600px;} }
+
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      border:1px solid rgba(202,240,248,.15);
+      border-radius:26px;
+      box-shadow:0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+
+    .progress-track{ height:18px; background:rgba(144,224,239,.15); border-radius:999px; overflow:hidden; border:1px solid rgba(144,224,239,.2);}
+    .progress-bar{ height:100%; background:linear-gradient(90deg,var(--pink),var(--yellow),var(--correct)); transition:width .5s ease; }
+
+    .player-card{ position:relative; overflow:hidden; transition: transform .4s ease; }
+    .player-card.flash{ animation: flashCorrect .8s ease; }
+    @keyframes flashCorrect {
+      0%   { box-shadow: 0 0 0 0 rgba(6,214,160,.7); }
+      60%  { box-shadow: 0 0 0 14px rgba(6,214,160,0); }
+      100% { box-shadow: 0 0 0 0 rgba(6,214,160,0); }
+    }
+
+    .rank-1{ border:2px solid var(--yellow); }
+    .rank-1::before{ content:"👑"; position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:1.8rem; filter: drop-shadow(0 4px 10px rgba(255,209,102,.6));}
+    .rank-2{ border:2px solid var(--light-blue); }
+    .rank-3{ border:2px solid var(--pink); }
+
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
+      padding:.85rem 1.3rem; border-radius:16px;
+      font-family:'Fredoka',sans-serif; font-weight:600; font-size:1.05rem; color:#fff;
+      box-shadow:0 8px 22px rgba(0,180,216,.28); cursor:pointer;
+    }
+    .btn-pink   { background:linear-gradient(180deg,#ff8fb3,var(--pink)); }
+    .btn-blue   { background:linear-gradient(180deg,var(--blue),var(--blue-dark)); }
+
+    .confetti{
+      position:fixed; pointer-events:none; z-index:50; top:-12px; width:10px; height:14px;
+      opacity:.95; border-radius:2px;
+      animation: confetti-fall linear forwards;
+    }
+    @keyframes confetti-fall {
+      to { transform: translateY(110vh) rotate(720deg); opacity: .2; }
+    }
+
+    .winner-banner{
+      animation: winnerIn .8s ease both;
+    }
+    @keyframes winnerIn {
+      from { opacity:0; transform: scale(.5);}
+      to   { opacity:1; transform: scale(1);}
+    }
+
+    .status-pill{
+      display:inline-block; padding:.25rem .8rem; border-radius:999px;
+      font-size:.78rem; font-family:'Nunito',sans-serif; font-weight:700;
+      letter-spacing:.4px; text-transform:uppercase;
+    }
+    .status-collecting{ background:rgba(144,224,239,.18); color:var(--light-blue);}
+    .status-ready    { background:rgba(255,209,102,.18); color:var(--yellow);}
+    .status-playing  { background:rgba(6,214,160,.18); color:var(--correct);}
+    .status-finished { background:rgba(123,47,190,.22); color:#d8b6ff;}
+  </style>
+</head>
+<body class="min-h-screen relative">
+  <div class="stars3"></div>
+  <div class="stars"></div>
+  <div class="stars2"></div>
+
+  <main class="relative z-10 max-w-5xl mx-auto px-4 py-6">
+
+    <header class="flex items-center justify-between flex-wrap gap-3 mb-5">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-bold" style="color:var(--yellow)">
+          🏆 ¿Cuánto me conocen?
+        </h1>
+        <p class="text-sm" style="color:var(--light-blue)">
+          Marcador en vivo · Sesión: <span id="session-short" class="font-mono">—</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="status-pill" class="status-pill status-collecting">—</span>
+        <button id="btn-reset" class="btn btn-pink text-sm" title="Reiniciar el juego">🔄 Reiniciar</button>
+      </div>
+    </header>
+
+    <!-- Sin sesión -->
+    <section id="screen-nosession" class="hidden card p-8 text-center">
+      <div class="text-5xl mb-3">🤷</div>
+      <p>Pásale a esta tablet la URL con <code>?session=...</code></p>
+    </section>
+
+    <!-- Esperando jugadores -->
+    <section id="screen-waiting" class="hidden card p-7 text-center">
+      <div class="text-6xl mb-3">⏳</div>
+      <h2 class="text-2xl font-bold mb-2" style="color:var(--yellow)">Esperando jugadores...</h2>
+      <p style="color:var(--light-blue)">Que papá y mamá abran su link 📱</p>
+    </section>
+
+    <!-- Scoreboard -->
+    <section id="screen-scoreboard" class="hidden">
+      <div id="players" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+    </section>
+
+    <!-- Ganador -->
+    <section id="screen-winner" class="hidden card p-8 text-center winner-banner">
+      <div class="text-8xl mb-3">🏆</div>
+      <h2 class="text-3xl font-bold mb-2" style="color:var(--yellow)">¡Tenemos ganador!</h2>
+      <div class="fredoka text-5xl mt-2 mb-3" style="color:var(--correct)" id="winner-name">—</div>
+      <p class="text-xl mb-4">
+        Con <span class="fredoka" style="color:var(--yellow)" id="winner-score">0</span> de 12 aciertos 🎯
+      </p>
+      <div id="winner-others" class="text-sm opacity-80"></div>
+    </section>
+
+  </main>
+
+  <script>
+    // ====== CONFIG ======
+    const SUPABASE_URL = "https://jrhmykilnqndvgnsmueo.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyaG15a2lsbnFuZHZnbnNtdWVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTE0MjgsImV4cCI6MjA5MjYyNzQyOH0.TgtzyFyZ5xKBGNeNVy_Gdwh3yapszS5yTBl69NZp-48";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const TOTAL = 12;
+    const $ = (id) => document.getElementById(id);
+    const screens = {
+      nosession:  $("screen-nosession"),
+      waiting:    $("screen-waiting"),
+      scoreboard: $("screen-scoreboard"),
+      winner:     $("screen-winner"),
+    };
+    function show(name){
+      Object.values(screens).forEach(s => s.classList.add("hidden"));
+      screens[name].classList.remove("hidden");
+    }
+
+    const params = new URLSearchParams(location.search);
+    const sessionId = params.get("session");
+
+    const state = {
+      session: null,
+      players: new Map(),   // name -> { name, total, correct, lastQ }
+      channel: null,
+    };
+
+    if(!sessionId){ show("nosession"); }
+    else { boot(); }
+
+    async function boot(){
+      $("session-short").textContent = sessionId.slice(0, 8) + "...";
+
+      const { data: session, error } = await sb
+        .from("quiz_sessions").select("*").eq("id", sessionId).maybeSingle();
+      if(error || !session){
+        show("nosession");
+        return;
+      }
+      state.session = session;
+      updateStatusPill();
+
+      const { data: all } = await sb
+        .from("player_answers").select("*").eq("session_id", sessionId)
+        .order("created_at", { ascending:true });
+      (all || []).forEach(ingest);
+
+      renderAll();
+      listenRealtime();
+    }
+
+    function updateStatusPill(){
+      const map = {
+        collecting: ["Recopilando", "status-collecting"],
+        ready:      ["Listo",       "status-ready"],
+        playing:    ["Jugando",     "status-playing"],
+        finished:   ["Terminado",   "status-finished"],
+      };
+      const [label, cls] = map[state.session.status] || ["—","status-collecting"];
+      $("status-pill").textContent = label;
+      $("status-pill").className = "status-pill " + cls;
+    }
+
+    function ingest(row){
+      let p = state.players.get(row.player_name);
+      if(!p){
+        p = { name: row.player_name, total: 0, correct: 0, lastQ: 0 };
+        state.players.set(row.player_name, p);
+      }
+      p.total += 1;
+      if(row.is_correct) p.correct += 1;
+      p.lastQ = Math.max(p.lastQ, row.question_number);
+      return { player: p, isCorrect: row.is_correct };
+    }
+
+    function listenRealtime(){
+      if(state.channel) sb.removeChannel(state.channel);
+      state.channel = sb.channel("scoreboard-" + sessionId)
+        .on("postgres_changes",
+          { event:"INSERT", schema:"public", table:"player_answers",
+            filter:`session_id=eq.${sessionId}` },
+          (payload) => {
+            const { player, isCorrect } = ingest(payload.new);
+            renderAll();
+            if(isCorrect){
+              flashPlayer(player.name);
+              burstConfetti();
+            }
+            maybeEndGame();
+          })
+        .on("postgres_changes",
+          { event:"UPDATE", schema:"public", table:"quiz_sessions",
+            filter:`id=eq.${sessionId}` },
+          (payload) => {
+            state.session.status = payload.new.status;
+            updateStatusPill();
+            if(payload.new.status === "finished") declareWinner();
+          })
+        .subscribe();
+    }
+
+    function renderAll(){
+      const players = Array.from(state.players.values())
+        .sort((a,b) => b.correct - a.correct || b.total - a.total || a.name.localeCompare(b.name));
+
+      if(players.length === 0){
+        show("waiting");
+        return;
+      }
+      if(state.session.status === "finished"){
+        declareWinner();
+        return;
+      }
+      show("scoreboard");
+
+      const colors = [
+        ["var(--pink)", "rgba(255,107,157,.18)"],
+        ["var(--blue)", "rgba(0,180,216,.18)"],
+        ["var(--yellow)", "rgba(255,209,102,.18)"],
+        ["var(--purple)", "rgba(123,47,190,.22)"],
+      ];
+
+      $("players").innerHTML = players.map((p, idx) => {
+        const pct = Math.round((p.total / TOTAL) * 100);
+        const [accent, bg] = colors[idx % colors.length];
+        const rankCls = idx === 0 ? "rank-1" : idx === 1 ? "rank-2" : idx === 2 ? "rank-3" : "";
+        return `
+          <div class="card player-card p-5 ${rankCls}" data-player="${escapeAttr(p.name)}"
+               style="background:linear-gradient(180deg, ${bg}, rgba(255,255,255,.02))">
+            <div class="flex items-center justify-between mb-3">
+              <div class="fredoka text-xl" style="color:${accent}">
+                ${idx+1}. ${escapeHtml(p.name)}
+              </div>
+              <div class="fredoka text-2xl">
+                <span style="color:var(--correct)">${p.correct}</span>
+                <span class="opacity-50 text-base">/ ${TOTAL}</span>
+              </div>
+            </div>
+            <div class="text-xs opacity-80 mb-1">
+              ${p.total}/${TOTAL} respondidas · ${p.correct} acertadas
+            </div>
+            <div class="progress-track">
+              <div class="progress-bar" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function flashPlayer(name){
+      const el = document.querySelector(`.player-card[data-player="${cssEscape(name)}"]`);
+      if(!el) return;
+      el.classList.remove("flash");
+      void el.offsetWidth;
+      el.classList.add("flash");
+    }
+
+    function maybeEndGame(){
+      const players = Array.from(state.players.values());
+      if(!players.length) return;
+      const allDone = players.every(p => p.total >= TOTAL);
+      if(allDone && state.session.status !== "finished"){
+        // Marcar la sesión como finished — refleja a todos
+        sb.from("quiz_sessions").update({ status:"finished" })
+          .eq("id", sessionId).then(({error}) => {
+            if(!error){
+              state.session.status = "finished";
+              updateStatusPill();
+              declareWinner();
+            }
+          });
+      }
+    }
+
+    function declareWinner(){
+      const players = Array.from(state.players.values())
+        .sort((a,b) => b.correct - a.correct);
+      if(!players.length){ show("waiting"); return; }
+      const top = players[0];
+      $("winner-name").textContent = top.name;
+      $("winner-score").textContent = top.correct;
+      const others = players.slice(1)
+        .map(p => `${escapeHtml(p.name)}: ${p.correct}/12`).join(" · ");
+      $("winner-others").textContent = others;
+      show("winner");
+      bigConfetti();
+    }
+
+    // ====== CONFETTI ======
+    function makePiece(color){
+      const c = document.createElement("div");
+      c.className = "confetti";
+      c.style.background = color;
+      c.style.left = (Math.random() * 100) + "vw";
+      c.style.animationDuration = (1.5 + Math.random() * 2) + "s";
+      c.style.transform = "rotate(" + (Math.random()*360) + "deg)";
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 4000);
+    }
+    function burstConfetti(){
+      const colors = ["#FFD166","#FF6B9D","#06D6A0","#00B4D8","#7B2FBE","#90E0EF"];
+      for(let i=0; i<25; i++){
+        setTimeout(() => makePiece(colors[i % colors.length]), i * 25);
+      }
+    }
+    function bigConfetti(){
+      const colors = ["#FFD166","#FF6B9D","#06D6A0","#00B4D8","#7B2FBE","#90E0EF"];
+      for(let i=0; i<140; i++){
+        setTimeout(() => makePiece(colors[i % colors.length]), i * 18);
+      }
+    }
+
+    // ====== RESET ======
+    $("btn-reset").addEventListener("click", async () => {
+      if(!state.session) return;
+      const pin = prompt("Ingresa el PIN admin para reiniciar:");
+      if(pin !== "ariana2026"){ alert("PIN incorrecto"); return; }
+      if(!confirm("Esto BORRA todas las respuestas de los jugadores y vuelve a 'ready'. ¿Seguir?")) return;
+
+      await sb.from("player_answers").delete().eq("session_id", sessionId);
+      await sb.from("quiz_sessions").update({ status:"ready" }).eq("id", sessionId);
+      state.players.clear();
+      state.session.status = "ready";
+      updateStatusPill();
+      renderAll();
+    });
+
+    // ====== UTILS ======
+    function escapeHtml(s){
+      return String(s ?? "")
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+    }
+    function escapeAttr(s){ return escapeHtml(s); }
+    function cssEscape(s){
+      if(window.CSS && CSS.escape) return CSS.escape(s);
+      return String(s).replace(/["\\]/g, "\\$&");
+    }
+  </script>
+</body>
+</html>
