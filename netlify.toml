@@ -1,5 +1,10 @@
+# Directorio de publicacion explicito (frontend-baseline §5).
+# Con publish = "." el sitio servia README.md, migration.sql y el codigo fuente
+# de la Netlify Function (netlify/functions/generate-quiz.js), que nombra
+# OPENAI_API_KEY y SUPABASE_SERVICE_ROLE_KEY. Las funciones se siguen
+# desplegando desde netlify/functions: eso no depende del publish dir.
 [build]
-  publish = "."
+  publish = "public"
   functions = "netlify/functions"
 
 [functions]
